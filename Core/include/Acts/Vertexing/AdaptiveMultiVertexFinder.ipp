@@ -33,6 +33,7 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::find(
           ((!m_cfg.addSingleTrackVertices) && seedTracks.size() > 1)) &&
          iteration < m_cfg.maxIterations) {
     FitterState_t oldFitterState = fitterState;
+std::cout << "finder iteration: " << iteration << std::endl;
 
     // Tracks that are used for searching compatible tracks
     // near a vertex candidate
@@ -53,6 +54,9 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::find(
 
     Vertex<InputTrack_t>& vtxCandidate = *allVertices.back();
     allVerticesPtr.push_back(&vtxCandidate);
+    std::cout << "\t seeding done with ntracks: " << seedTracks.size() << std::endl;
+    std::cout << "\t seed pos: " <<  vtxCandidate.fullPosition()[0] << ", " << vtxCandidate.fullPosition()[1] << ", "<< vtxCandidate.fullPosition()[2] << std::endl;
+    
 
     ACTS_DEBUG("Position of current vertex candidate after seeding: "
                << vtxCandidate.fullPosition());
@@ -87,9 +91,13 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::find(
     }
     ACTS_DEBUG("New position of current vertex candidate after fit: "
                << vtxCandidate.fullPosition());
+    std::cout << "\t new position of vertex after fit: " 
+              << vtxCandidate.fullPosition()[0] << ", " << vtxCandidate.fullPosition()[1] << ", "<< vtxCandidate.fullPosition()[2] << std::endl;
     // Check if vertex is good vertex
     auto [nCompatibleTracks, isGoodVertex] =
         checkVertexAndCompatibleTracks(vtxCandidate, seedTracks, fitterState);
+
+    std::cout << "\t nCompatibleTracks / isGoodVertex: " << nCompatibleTracks << ", " << isGoodVertex << std::endl;
 
     ACTS_DEBUG("Vertex is good vertex: " << isGoodVertex);
     if (nCompatibleTracks > 0) {
