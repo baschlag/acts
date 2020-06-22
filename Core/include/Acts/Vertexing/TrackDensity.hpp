@@ -27,9 +27,9 @@ class TrackDensity {
     // Default constructor
     TrackEntry() = default;
     // Constructor initializing all members
-    TrackEntry(/*const input_track_t* trk,*/ double z, double c0in, double c1in, double c2in, double zMin,
+    TrackEntry(const input_track_t* trk, double z, double c0in, double c1in, double c2in, double zMin,
                double zMax)
-        : //trkPtr(trk),
+        : trkPtr(trk),
           z(z),
           c0(c0in),
           c1(c1in),
@@ -37,7 +37,7 @@ class TrackDensity {
           lowerBound(zMin),
           upperBound(zMax) {}
 
-    //const input_track_t* trkPtr;
+    const input_track_t* trkPtr;
 
     double z = 0;
     // Cached information for a single track
@@ -53,6 +53,40 @@ class TrackDensity {
     double upperBound = 0;
   };
 
+private:
+  /// @class TrackDensityStore
+  /// @brief Helper class to evaluate and store track density at specific position
+  class TrackDensityStore {
+   public:
+    struct Cache
+    {
+      double deltaDensity = 0;
+      double deltaFirstDerivative = 0;
+      double deltaSecondDerivative = 0;
+    };
+    // Initialise at the z coordinate at which the density is to be evaluated
+    TrackDensityStore(double z_coordinate) : m_z(z_coordinate) {}
+
+    // Add the contribution of a single track to the density
+    void addTrackToDensity(const TrackEntry& entry, Cache& cache);
+
+    // TODO
+    void updateValues(Cache& cache);
+
+    // Retrieve the density and its derivatives
+    inline double density() const { return m_density; }
+    inline double firstDerivative() const { return m_firstDerivative; }
+    inline double secondDerivative() const { return m_secondDerivative; }
+
+   private:
+    // Store density and derivatives for z position m_z
+    double m_z;
+    double m_density{0};
+    double m_firstDerivative{0};
+    double m_secondDerivative{0};
+  };
+
+public:
   /// @brief The Config struct
   struct Config {
 
@@ -83,7 +117,7 @@ class TrackDensity {
     // Vector to cache track information
     std::vector<TrackEntry> trackEntries;
 
-    std::map<std::tuple<double, double, double, double, double, double, double>, std::tuple<double, double, double>> testMap;
+    std::map<std::pair<const input_track_t*, double>, typename TrackDensityStore::Cache> testMap;
   };
 
   /// Default constructor
@@ -182,30 +216,6 @@ class TrackDensity {
   /// @return The step size
   double stepSize(double y, double dy, double ddy) const;
 
-  // Helper class to evaluate and store track density at specific position
-  class TrackDensityStore {
-   public:
-    // Initialise at the z coordinate at which the density is to be evaluated
-    TrackDensityStore(double z_coordinate) : m_z(z_coordinate) {}
-
-    // Add the contribution of a single track to the density
-    void addTrackToDensity(const TrackEntry& entry);//, double& cache1, double& cache2, double& cache3);
-
-    // TODO
-    void updateValues(double density, double fD, double sD);
-
-    // Retrieve the density and its derivatives
-    inline double density() const { return m_density; }
-    inline double firstDerivative() const { return m_firstDerivative; }
-    inline double secondDerivative() const { return m_secondDerivative; }
-
-   private:
-    // Store density and derivatives for z position m_z
-    double m_z;
-    double m_density{0};
-    double m_firstDerivative{0};
-    double m_secondDerivative{0};
-  };
 };
 
 #include "Acts/Vertexing/TrackDensity.ipp"
