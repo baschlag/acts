@@ -82,14 +82,13 @@ Acts::Result<Acts::LinearizedTrack> Acts::
     rho = sinTh * (1. / qOvP) / Bz;
   }
 
-  const double lambda = M_PI/2. - theta;
-  const double cosLambda = std::cos(lambda);
-  const double Tx = std::cos(lambda)*cosPhiV;
-  const double Ty = cosLambda * sinPhiV;
-  const double Tz = std::sin(lambda);
+  const double Tx = sinTh*cosPhiV;
+  const double Ty = sinTh * sinPhiV;
+  const double Tz = std::cos(theta);
 
   const double qpBz = qOvP * Bz;
-  const double sqrtTz = std::sqrt(1-Tz*Tz);
+  const double sqrtTzTz = std::sqrt(1-Tz*Tz);
+  const double tzSq = sqrtTzTz*sqrtTzTz;
 
   double newX = positionAtPCA(0) - linPointPos.x() + Ty/(qpBz);
   double newY = positionAtPCA(1) - linPointPos.y() - Tx/(qpBz);
@@ -115,7 +114,9 @@ Acts::Result<Acts::LinearizedTrack> Acts::
     }
   }
 
-  double d0 = sqrtTz/(qOvP*Bz) - sgnH * newS;
+  std::cout << "PHI: " << phiV << " = " << M_PI/2 - std::atan2(Tz,Tx)  << std::endl;
+
+  double d0 = sqrtTzTz/(qOvP*Bz) - sgnH * newS;
   double z0 = positionAtPCA[eZ] + linPointPos.z() + Tz/(qOvP*Bz) * (phiV - phiAtPCA);
   /// F(V, p_i) at PCA in Billoir paper
   /// (see FullBilloirVertexFitter.hpp for paper reference,
@@ -131,40 +132,66 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   predParamsAtPCA[5] = 0.;
 
   double dPhi = phiAtPCA - phiV;
+  double TzOvQPBS2 = Tz / (qpBz * qpBz * newS2);
+  double sqrtTyTz = std::sqrt(1-Ty*Ty-Tz*Tz);
+
+  double hOvS = sgnH/newS;  
 
   FreeToBoundMatrix freeToBoundJacobian{FreeToBoundMatrix::Zero()};
 
-  freeToBoundJacobian(0,0) = -sgnH * newX / S;
-  freeToBoundJacobian(0,1) = -sgnH * neWY / S;
-  freeToBoundJacobian(0,2) = 0.;
-  freeToBoundJacobian(0,3) = 0.;
-  freeToBoundJacobian(0,4) = sgnH * newY / (qpBz * newS);
-  freeToBoundJacobian(0,5) = - sgnH * newX / (qpBz * newS);;
-  freeToBoundJacobian(0,6) = - Tz/(qpBz * sqrtTz);
-  freeToBoundJacobian(0,7) = - 1/(qpBz * qOvP) * (sgnH*(Tx*newY - Ty*newX)/newS + sqrtTz);
+  double Tt = std::sqrt(Tx*Tx + Ty*Ty);
 
-  freeToBoundJacobian(1,0) = Tz * newX / (qpBz * newS2);
-  freeToBoundJacobian(1,1) = -Tz * newY / (qpBz * newS2);
-  freeToBoundJacobian(1,2) = 1.;
-  freeToBoundJacobian(1,3) = 0.;
-  freeToBoundJacobian(1,4) = Tz * newX / (qpBz * qpBz * newS2);
-  freeToBoundJacobian(1,5) = Tz / (qpBz * qpBz * newS2) * (newS2 * qOvP / std::sqrt(1-Ty*Ty-Tz*Tz) + newY);
-  freeToBoundJacobian(1,6) = 1./(qpBz) * ( Ty*Tz*Tz/((1-Tz*Tz)*(1-Tz*Tz)*std::sqrt(1-Ty*Ty-Tz*Tz)) + dPhi);
-  freeToBoundJacobian(1,7) = -Tz / (qpBz * qpBz * newS2) * ( (Tx*newX + Ty*newY)/qOvP + Bz * newS2 * dPhi);
+  double dRhodTx = Tz /(qpBz * Tt) * Tx*Tz/(Tz*Tz + Tt*Tt);
+  double dRhodTy = Tz /(qpBz * Tt) * Ty*Tz/(Tz*Tz + Tt*Tt);
+  double dRhodTz = -Tz /qpBz * Tt/(Tz*Tz + Tt*Tt);
+  double dRhodQP = -sinTh/(qpBz*qOvP);
 
-  freeToBoundJacobian(2,0) = - newY / newS2;
-  freeToBoundJacobian(2,1) = newX / newS2;
-  freeToBoundJacobian(2,2) = 0.;
-  freeToBoundJacobian(2,3) = 0.;
-  freeToBoundJacobian(2,4) = -newX / (qpBz * newS2);
-  freeToBoundJacobian(2,5) = -newY / (qpBz * newS2)
-  freeToBoundJacobian(2,6) = 0;
-  freeToBoundJacobian(2,7) = (Tx*newX + Ty*newY)/(qpBz * qOvP * newS2);
+  double dPhidTx = -Ty/(Tx*Tx + Ty*Ty);
+  double dPhidTy = Tx/(Tx*Tx + Ty*Ty);
 
+  double myR = newY * sinPhiV + newX * cosPhiV;
+  double myQ = newX * sinPhiV - newY * cosPhiV;
 
-  // TODO: add other derivatives...
+  double Tt3 = Tt*Tt*Tt;
 
-// Fill position jacobian (D_k matrix), Eq. 5.36 in Ref(1)
+  // d0 derivatives
+  freeToBoundJacobian(0,0) = -sgnH * newX / S; // checked
+  freeToBoundJacobian(0,1) = -sgnH * newY / S; // checked
+  freeToBoundJacobian(0,2) = 0.; // checked
+  freeToBoundJacobian(0,3) = 0.; // checked
+  freeToBoundJacobian(0,4) = dRhodTx -hOvS *(dRhodTx*myQ + rho * dPhidTx*myR);
+  freeToBoundJacobian(0,5) = dRhodTy -hOvS *(dRhodTy*myQ + rho * dPhidTy*myR);
+  freeToBoundJacobian(0,6) = dRhodTz * (1- hOvS*myQ);
+  freeToBoundJacobian(0,7) = dRhodQP * (1- hOvS*myQ);
+
+  // phi derivatives
+  freeToBoundJacobian(2,0) = - newY / newS2; // checked
+  freeToBoundJacobian(2,1) = newX / newS2; // checked
+  freeToBoundJacobian(2,2) = 0.; // checked
+  freeToBoundJacobian(2,3) = 0.; // checked
+  freeToBoundJacobian(2,4) = 1/newS2 * (-dRhodTx*myR + rho * dPhidTx * myQ);
+  freeToBoundJacobian(2,5) = 1/newS2 * (-dRhodTy*myR + rho * dPhidTy * myQ);
+  freeToBoundJacobian(2,6) = -1/newS2 * dRhodTz * myR;
+  freeToBoundJacobian(2,7) = -1/newS2 * dRhodQP * myR;
+
+  // z0 derivatives
+  freeToBoundJacobian(1,0) = Tz * newY / (qpBz * newS2); // checked
+  freeToBoundJacobian(1,1) = -Tz * newX / (qpBz * newS2); // checked
+  freeToBoundJacobian(1,2) = 1.; // checked
+  freeToBoundJacobian(1,3) = 0.; // checked
+  freeToBoundJacobian(1,4) = -(dRhodTx * Tz/Tt - rho * Tz * Tx / Tt3) * dPhi + rho * Tz/Tt *(dPhidTx - freeToBoundJacobian(2,4));
+  freeToBoundJacobian(1,5) = -(dRhodTy * Tz/Tt - rho * Tz * Ty / Tt3) * dPhi + rho * Tz/Tt *(dPhidTy - freeToBoundJacobian(2,5));
+  freeToBoundJacobian(1,6) = -(dRhodTz * Tz/Tt + rho/Tt) * dPhi - rho * Tz/Tt * freeToBoundJacobian(2,6);
+  freeToBoundJacobian(1,7) = -dRhodQP * Tz/Tt * dPhi -rho * Tz/Tt * freeToBoundJacobian(2,7);
+
+  // theta derivatives
+  freeToBoundJacobian(3,4) = Tx*Tz/(Tz*Tz + Tt * Tt) * 1/Tt;
+  freeToBoundJacobian(3,5) = Ty*Tz/(Tz*Tz + Tt * Tt) * 1/Tt;
+  freeToBoundJacobian(3,6) = -Tt/(Tz*Tz + Tt * Tt);
+  // q/p
+  freeToBoundJacobian(4,7) = 1.;
+  
+  // Fill position jacobian (D_k matrix), Eq. 5.36 in Ref(1)
   ActsMatrix<BoundScalar, eBoundSize, 4> positionJacobian;
   positionJacobian.setZero();
   // // First row
@@ -221,6 +248,11 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   BoundVector constTerm = predParamsAtPCA - positionJacobian * positionAtPCA -
                           momentumJacobian * momentumAtPCA;
 
+  FreeVector freeVector;
+  freeVector << positionAtPCA[ePos0], positionAtPCA[ePos1], positionAtPCA[ePos2], positionAtPCA[eTime],
+                Tx, Ty, Tz, qOvP;
+  BoundVector newConstTerm = predParamsAtPCA - freeToBoundJacobian * freeVector;
+
   // The parameter weight
   ActsSymMatrixD<5> parWeight =
       (parCovarianceAtPCA.block<5, 5>(0, 0)).inverse();
@@ -228,7 +260,7 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   BoundSymMatrix weightAtPCA{BoundSymMatrix::Identity()};
   weightAtPCA.block<5, 5>(0, 0) = parWeight;
 
-  return LinearizedTrack(paramsAtPCA, parCovarianceAtPCA, weightAtPCA, linPoint,
+  return LinearizedTrack(paramsAtPCA, parCovarianceAtPCA, weightAtPCA, linPoint, freeToBoundJacobian,
                          positionJacobian, momentumJacobian, positionAtPCA,
-                         momentumAtPCA, constTerm);
+                         momentumAtPCA, constTerm, newConstTerm);
 }

@@ -48,39 +48,37 @@ struct LinearizedTrack {
                   const BoundSymMatrix& parCovarianceAtPCA,
                   const BoundSymMatrix& parWeightAtPCA,
                   const Vector4D& linPoint,
+                  const FreeToBoundMatrix& jacobian,
                   const ActsMatrix<BoundScalar, eBoundSize, 4>& posJacobian,
                   const ActsMatrixD<eBoundSize, 3>& momJacobian,
                   const Vector4D& position, const Vector3D& momentum,
-                  const BoundVector& constTerm)
+                  const BoundVector& constTerm,
+                  const BoundVector& newConstTerm)
       : parametersAtPCA(paramsAtPCA),
         covarianceAtPCA(parCovarianceAtPCA),
         weightAtPCA(parWeightAtPCA),
         linearizationPoint(linPoint),
+        freeToBoundJacobian(jacobian),
         positionJacobian(posJacobian),
         momentumJacobian(momJacobian),
         positionAtPCA(position),
         momentumAtPCA(momentum),
-        constantTerm(constTerm) {}
+        constantTerm(constTerm),
+        newConstantTerm(newConstTerm) {}
 
   BoundVector parametersAtPCA{BoundVector::Zero()};
   BoundSymMatrix covarianceAtPCA{BoundSymMatrix::Zero()};
   BoundSymMatrix weightAtPCA{BoundSymMatrix::Zero()};
   Vector4D linearizationPoint{Vector4D::Zero()};
-<<<<<<< HEAD
+  FreeToBoundMatrix freeToBoundJacobian{FreeToBoundMatrix::Zero()};
   ActsMatrix<BoundScalar, eBoundSize, 4> positionJacobian{
       ActsMatrix<BoundScalar, eBoundSize, 4>::Zero()};
   ActsMatrixD<eBoundSize, 3> momentumJacobian{
       ActsMatrixD<eBoundSize, 3>::Zero()};
-=======
-  ActsMatrix<BoundParametersScalar, eBoundParametersSize, 4> positionJacobian{
-      ActsMatrix<BoundParametersScalar, eBoundParametersSize, 4>::Zero()};
-  ActsMatrixD<eBoundParametersSize, 3> momentumJacobian{
-      ActsMatrixD<eBoundParametersSize, 3>::Zero()};
-  FreeToBoundMatrix freeToBoundJacobian{FreeToBoundMatrix::Zero()};
->>>>>>> start adding freeToBound jacobian derivatives...
   Vector4D positionAtPCA{Vector4D::Zero()};
   Vector3D momentumAtPCA{Vector3D::Zero()};
   BoundVector constantTerm{BoundVector::Zero()};
+  BoundVector newConstantTerm{BoundVector::Zero()};
 };
 
 }  // namespace Acts
