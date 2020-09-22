@@ -63,6 +63,7 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   // theta and functions
   double theta = paramsAtPCA(BoundIndices::eBoundTheta);
   const double sinTh = std::sin(theta);
+  const double cosTh = std::cos(theta);
   const double tanTh = std::tan(theta);
 
   // q over p
@@ -104,20 +105,20 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   int sgnX = (newX < 0.) ? -1 : 1;
   int sgnY = (newY < 0.) ? -1 : 1;
 
-  double phiAtPCA;
+  // phi at the point of closest approach (perigee)
+  double phiP;
   if (std::abs(newX) > std::abs(newY)) {
-    phiAtPCA = sgnH * sgnX * std::acos(-sgnH * newY / newS);
+    phiP = sgnH * sgnX * std::acos(-sgnH * newY / newS);
   } else {
-    phiAtPCA = std::asin(sgnH * newX / newS);
+    phiP = std::asin(sgnH * newX / newS);
     if ((sgnH * sgnY) > 0) {
-      phiAtPCA = sgnH * sgnX * M_PI - phiAtPCA;
+      phiP = sgnH * sgnX * M_PI - phiP;
     }
-  }
-
+  } 
   std::cout << "PHI: " << phiV << " = " << M_PI/2 - std::atan2(Tz,Tx)  << std::endl;
 
   double d0 = sqrtTzTz/(qOvP*Bz) - sgnH * newS;
-  double z0 = positionAtPCA[eZ] + linPointPos.z() + Tz/(qOvP*Bz) * (phiV - phiAtPCA);
+  double z0 = positionAtPCA[eZ] + linPointPos.z() + Tz/(qOvP*Bz) * (phiV - phiP);
   /// F(V, p_i) at PCA in Billoir paper
   /// (see FullBilloirVertexFitter.hpp for paper reference,
   /// Page 140, Eq. (2) )
@@ -126,12 +127,12 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   // Eq. 5.33 in Ref(1) (see .hpp)
   predParamsAtPCA[0] = d0;
   predParamsAtPCA[1] = z0;
-  predParamsAtPCA[2] = phiAtPCA;
+  predParamsAtPCA[2] = phiP;
   predParamsAtPCA[3] = theta;
   predParamsAtPCA[4] = qOvP;
   predParamsAtPCA[5] = 0.;
 
-  double dPhi = phiAtPCA - phiV;
+  double dPhi = phiP - phiV;
   double TzOvQPBS2 = Tz / (qpBz * qpBz * newS2);
   double sqrtTyTz = std::sqrt(1-Ty*Ty-Tz*Tz);
 
@@ -169,7 +170,7 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   freeToBoundJacobian(2,1) = newX / newS2; // checked
   freeToBoundJacobian(2,2) = 0.; // checked
   freeToBoundJacobian(2,3) = 0.; // checked
-  freeToBoundJacobian(2,4) = 1/newS2 * (-dRhodTx*myR + rho * dPhidTx * myQ);
+  freeToBoundJacobian(2,4) = 1/newS2 * (-dRhodTx* myR + rho * dPhidTx * myQ);
   freeToBoundJacobian(2,5) = 1/newS2 * (-dRhodTy*myR + rho * dPhidTy * myQ);
   freeToBoundJacobian(2,6) = -1/newS2 * dRhodTz * myR;
   freeToBoundJacobian(2,7) = -1/newS2 * dRhodQP * myR;
@@ -190,7 +191,61 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   freeToBoundJacobian(3,6) = -Tt/(Tz*Tz + Tt * Tt);
   // q/p
   freeToBoundJacobian(4,7) = 1.;
+
+  // Calculate boundToFree matrix for covariance transformation
+  BoundToFreeMatrix boundToFreeJacobian{BoundToFreeMatrix::Zero()};
+  double rhoMinusD0 = rho - d0;
+  double dRhodTheta = cosTh/qpBz;
+  double sinPhiP = std::sin(phiP);
+  double cosPhiP = std::cos(phiP);
+  double deltaSinPhi = sinPhiP - sinPhiV;
+  double deltaCosPhi = cosPhiP - cosPhiV;
+
+  /////////////////
+  //// TODO !!! check if derivatives are w.r.t. phiV or phiP... not consistent with Tx,Ty etc!
+  ////////////////
+
+
+  // x-component derivatives
+  boundToFreeJacobian(0,0) = -sinPhiP;
+  boundToFreeJacobian(0,2) = cosPhiP * rhoMinusD0;
+  boundToFreeJacobian(0,3) = dRhodTheta * deltaSinPhi;
+  boundToFreeJacobian(0,4) = dRhodQP * deltaSinPhi;
+
+  // y-component derivatives
+  boundToFreeJacobian(1,0) = cosPhiP;
+  boundToFreeJacobian(1,2) = sinPhiP * rhoMinusD0;
+  boundToFreeJacobian(1,3) = -dRhodTheta * deltaCosPhi;
+  boundToFreeJacobian(1,4) = -dRhodQP * deltaCosPhi;
+
+  // z-component derivatives
+  boundToFreeJacobian(2,1) = 1.;
+  boundToFreeJacobian(2,2) = dRhodTheta;
+  boundToFreeJacobian(2,3) = -sinTh/qpBz * dPhi;
+  boundToFreeJacobian(2,4) = -cosTh/(qpBz*qOvP) * dPhi;
+
+  // t-component derivatives
+  boundToFreeJacobian(3,5) = 1.;
   
+  // TODD: see above: not consistent with phiP and phiV
+  // Tx-component derivatives
+  boundToFreeJacobian(4,2) = -sinPhiP*sinTh;
+  boundToFreeJacobian(4,3) = cosPhiP*cosTh;
+
+  // Ty-component derivatives
+  boundToFreeJacobian(5,2) = sinTh*cosPhiP;
+  boundToFreeJacobian(5,3) = cosTh*sinPhiP;
+  
+  // Tz-component derivatives
+  boundToFreeJacobian(6,3) = -sinTh;
+
+  // q/p-component derivatives
+  boundToFreeJacobian(7,4) = 1.;
+
+  // Calculate free covariance matrix
+  FreeSymMatrix freeCovarianceAtPCA;
+  freeCovarianceAtPCA = boundToFreeJacobian * parCovarianceAtPCA * boundToFreeJacobian.transpose();
+
   // Fill position jacobian (D_k matrix), Eq. 5.36 in Ref(1)
   ActsMatrix<BoundScalar, eBoundSize, 4> positionJacobian;
   positionJacobian.setZero();
