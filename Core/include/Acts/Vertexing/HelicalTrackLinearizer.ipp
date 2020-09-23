@@ -89,7 +89,6 @@ Acts::Result<Acts::LinearizedTrack> Acts::
 
   const double qpBz = qOvP * Bz;
   const double sqrtTzTz = std::sqrt(1-Tz*Tz);
-  const double tzSq = sqrtTzTz*sqrtTzTz;
 
   double newX = positionAtPCA(0) - linPointPos.x() + Ty/(qpBz);
   double newY = positionAtPCA(1) - linPointPos.y() - Tx/(qpBz);
@@ -115,8 +114,7 @@ Acts::Result<Acts::LinearizedTrack> Acts::
       phiP = sgnH * sgnX * M_PI - phiP;
     }
   } 
-  std::cout << "PHI: " << phiV << " = " << M_PI/2 - std::atan2(Tz,Tx)  << std::endl;
-
+  
   double d0 = sqrtTzTz/(qOvP*Bz) - sgnH * newS;
   double z0 = positionAtPCA[eZ] + linPointPos.z() + Tz/(qOvP*Bz) * (phiV - phiP);
   /// F(V, p_i) at PCA in Billoir paper
@@ -133,9 +131,6 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   predParamsAtPCA[5] = 0.;
 
   double dPhi = phiP - phiV;
-  double TzOvQPBS2 = Tz / (qpBz * qpBz * newS2);
-  double sqrtTyTz = std::sqrt(1-Ty*Ty-Tz*Tz);
-
   double hOvS = sgnH/newS;  
 
   FreeToBoundMatrix freeToBoundJacobian{FreeToBoundMatrix::Zero()};
@@ -191,6 +186,8 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   freeToBoundJacobian(3,6) = -Tt/(Tz*Tz + Tt * Tt);
   // q/p
   freeToBoundJacobian(4,7) = 1.;
+  // time
+  freeToBoundJacobian(5,3) = 1.;
 
   // Calculate boundToFree matrix for covariance transformation
   BoundToFreeMatrix boundToFreeJacobian{BoundToFreeMatrix::Zero()};
@@ -200,11 +197,6 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   double cosPhiP = std::cos(phiP);
   double deltaSinPhi = sinPhiP - sinPhiV;
   double deltaCosPhi = cosPhiP - cosPhiV;
-
-  /////////////////
-  //// TODO !!! check if derivatives are w.r.t. phiV or phiP... not consistent with Tx,Ty etc!
-  ////////////////
-
 
   // x-component derivatives
   boundToFreeJacobian(0,0) = -sinPhiP;
@@ -227,7 +219,6 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   // t-component derivatives
   boundToFreeJacobian(3,5) = 1.;
   
-  // TODD: see above: not consistent with phiP and phiV
   // Tx-component derivatives
   boundToFreeJacobian(4,2) = -sinPhiP*sinTh;
   boundToFreeJacobian(4,3) = cosPhiP*cosTh;
@@ -245,6 +236,14 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   // Calculate free covariance matrix
   FreeSymMatrix freeCovarianceAtPCA;
   freeCovarianceAtPCA = boundToFreeJacobian * parCovarianceAtPCA * boundToFreeJacobian.transpose();
+
+  BoundSymMatrix oldCov = freeToBoundJacobian * freeCovarianceAtPCA * freeToBoundJacobian.transpose();
+
+  std::cout << "orig:" << parCovarianceAtPCA << std::endl;
+  std::cout << "tran:" << oldCov << std::endl << std::endl;
+
+  // Calculate free weight matrix
+  FreeSymMatrix freeWeightMatrix = freeCovarianceAtPCA.inverse();
 
   // Fill position jacobian (D_k matrix), Eq. 5.36 in Ref(1)
   ActsMatrix<BoundScalar, eBoundSize, 4> positionJacobian;
@@ -315,7 +314,8 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   BoundSymMatrix weightAtPCA{BoundSymMatrix::Identity()};
   weightAtPCA.block<5, 5>(0, 0) = parWeight;
 
-  return LinearizedTrack(paramsAtPCA, parCovarianceAtPCA, weightAtPCA, linPoint, freeToBoundJacobian,
+  return LinearizedTrack(paramsAtPCA, freeVector, parCovarianceAtPCA, freeCovarianceAtPCA, weightAtPCA,
+                        freeWeightMatrix, linPoint, freeToBoundJacobian,
                          positionJacobian, momentumJacobian, positionAtPCA,
                          momentumAtPCA, constTerm, newConstTerm);
 }

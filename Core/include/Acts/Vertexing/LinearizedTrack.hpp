@@ -45,8 +45,11 @@ struct LinearizedTrack {
   LinearizedTrack() = default;
 
   LinearizedTrack(const BoundVector& paramsAtPCA,
+                  const FreeVector& freeVector,
                   const BoundSymMatrix& parCovarianceAtPCA,
+                  const FreeSymMatrix& freeCovariance,
                   const BoundSymMatrix& parWeightAtPCA,
+                  const FreeSymMatrix& freeWeightMatrix,
                   const Vector4D& linPoint,
                   const FreeToBoundMatrix& jacobian,
                   const ActsMatrix<BoundScalar, eBoundSize, 4>& posJacobian,
@@ -55,8 +58,11 @@ struct LinearizedTrack {
                   const BoundVector& constTerm,
                   const BoundVector& newConstTerm)
       : parametersAtPCA(paramsAtPCA),
+        freeParametersAtPCA(freeVector),
         covarianceAtPCA(parCovarianceAtPCA),
+        freeCovarianceAtPCA(freeCovariance),
         weightAtPCA(parWeightAtPCA),
+        freeWeightAtPCA(freeWeightMatrix),
         linearizationPoint(linPoint),
         freeToBoundJacobian(jacobian),
         positionJacobian(posJacobian),
@@ -67,8 +73,11 @@ struct LinearizedTrack {
         newConstantTerm(newConstTerm) {}
 
   BoundVector parametersAtPCA{BoundVector::Zero()};
+  FreeVector freeParametersAtPCA{FreeVector::Zero()};
   BoundSymMatrix covarianceAtPCA{BoundSymMatrix::Zero()};
+  FreeSymMatrix freeCovarianceAtPCA{FreeSymMatrix::Zero()};
   BoundSymMatrix weightAtPCA{BoundSymMatrix::Zero()};
+  FreeSymMatrix freeWeightAtPCA{FreeSymMatrix::Zero()};
   Vector4D linearizationPoint{Vector4D::Zero()};
   FreeToBoundMatrix freeToBoundJacobian{FreeToBoundMatrix::Zero()};
   ActsMatrix<BoundScalar, eBoundSize, 4> positionJacobian{
