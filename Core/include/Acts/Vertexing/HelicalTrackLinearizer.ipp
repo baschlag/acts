@@ -90,8 +90,11 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   const double qpBz = qOvP * Bz;
   const double sqrtTzTz = std::sqrt(1-Tz*Tz);
 
-  double newX = positionAtPCA(0) - linPointPos.x() + Ty/(qpBz);
-  double newY = positionAtPCA(1) - linPointPos.y() - Tx/(qpBz);
+  double deltaX = positionAtPCA(0) - linPointPos.x();
+  double deltaY = positionAtPCA(1) - linPointPos.y();
+
+  double newX = deltaX + Ty/(qpBz);
+  double newY = deltaY - Tx/(qpBz);
   double newS2 = newX * newX + newY * newY;
   double newS = std::sqrt(newS2);
 
@@ -218,13 +221,18 @@ Acts::Result<Acts::LinearizedTrack> Acts::
 
   // t-component derivatives
   boundToFreeJacobian(3,5) = 1.;
+
+  double myPhi = phiV;
+
+  double xi = deltaY - deltaX*std::tan(myPhi);
+  double dPhidPhiP = (deltaX/std::cos(myPhi) + std::sin(myPhi)) * xi / std::sqrt(rho*rho - std::cos(myPhi)*std::cos(myPhi) * xi * xi);
   
   // Tx-component derivatives
-  boundToFreeJacobian(4,2) = -sinPhiP*sinTh;
+  boundToFreeJacobian(4,2) = -sinPhiP*sinTh * dPhidPhiP;
   boundToFreeJacobian(4,3) = cosPhiP*cosTh;
 
   // Ty-component derivatives
-  boundToFreeJacobian(5,2) = sinTh*cosPhiP;
+  boundToFreeJacobian(5,2) = sinTh*cosPhiP * dPhidPhiP;
   boundToFreeJacobian(5,3) = cosTh*sinPhiP;
   
   // Tz-component derivatives
@@ -237,7 +245,7 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   FreeSymMatrix freeCovarianceAtPCA;
   freeCovarianceAtPCA = boundToFreeJacobian * parCovarianceAtPCA * boundToFreeJacobian.transpose();
 
-  BoundSymMatrix oldCov = freeToBoundJacobian * freeCovarianceAtPCA * freeToBoundJacobian.transpose();
+  BoundSymMatrix oldCov = freeToBoundJacobian * boundToFreeJacobian * parCovarianceAtPCA * boundToFreeJacobian.transpose() * freeToBoundJacobian.transpose();
 
   std::cout << "orig:" << parCovarianceAtPCA << std::endl;
   std::cout << "tran:" << oldCov << std::endl << std::endl;
