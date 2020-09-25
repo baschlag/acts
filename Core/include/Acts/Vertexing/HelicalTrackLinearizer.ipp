@@ -59,6 +59,7 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   double phiV = paramsAtPCA(BoundIndices::eBoundPhi);
   double sinPhiV = std::sin(phiV);
   double cosPhiV = std::cos(phiV);
+  double tanPhiV = std::tan(phiV);
 
   // theta and functions
   double theta = paramsAtPCA(BoundIndices::eBoundTheta);
@@ -222,10 +223,8 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   // t-component derivatives
   boundToFreeJacobian(3,5) = 1.;
 
-  double myPhi = phiV;
-
-  double xi = deltaY - deltaX*std::tan(myPhi);
-  double dPhidPhiP = (deltaX/std::cos(myPhi) + std::sin(myPhi)) * xi / std::sqrt(rho*rho - std::cos(myPhi)*std::cos(myPhi) * xi * xi);
+  double xi = deltaY - deltaX*tanPhiV;
+  double dPhidPhiP = (deltaX/cosPhiV + sinPhiV) * xi / std::sqrt(rho*rho - cosPhiV*cosPhiV * xi * xi);
   
   // Tx-component derivatives
   boundToFreeJacobian(4,2) = -sinPhiP*sinTh * dPhidPhiP;
@@ -244,11 +243,6 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   // Calculate free covariance matrix
   FreeSymMatrix freeCovarianceAtPCA;
   freeCovarianceAtPCA = boundToFreeJacobian * parCovarianceAtPCA * boundToFreeJacobian.transpose();
-
-  BoundSymMatrix oldCov = freeToBoundJacobian * boundToFreeJacobian * parCovarianceAtPCA * boundToFreeJacobian.transpose() * freeToBoundJacobian.transpose();
-
-  std::cout << "orig:" << parCovarianceAtPCA << std::endl;
-  std::cout << "tran:" << oldCov << std::endl << std::endl;
 
   // Calculate free weight matrix
   FreeSymMatrix freeWeightMatrix = freeCovarianceAtPCA.inverse();
