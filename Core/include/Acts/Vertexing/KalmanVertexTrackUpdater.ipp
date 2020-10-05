@@ -32,15 +32,40 @@ void Acts::KalmanVertexTrackUpdater::update(TrackAtVertex<input_track_t>& track,
   const ActsSymMatrixD<5> trkParamWeight =
       linTrack.weightAtPCA.block<5, 5>(0, 0);
 
+
+  const Vector4D fullVtxPos = vtx.fullPosition();
+  const ActsVectorD<6> newFreeTrkParams = linTrack.parametersAtPCA;
+
+  const FreeToBoundMatrix& boundParamJacobian = linTrack.freeToBoundJacobian;
+  //const FreeSymMatrix& freeWeightAtPCA = linTrack.freeWeightAtPCA;
+  //const FreeVector& freeParametersAtPCA = linTrack.freeParametersAtPCA;
+
+  const ActsMatrixD<6, 4> freePosJac = boundParamJacobian.block<6,4>(0,0);
+  const ActsMatrixD<6, 4> freeMomJac = boundParamJacobian.block<6,4>(0,4);
+
+  const ActsSymMatrixD<6> freeBoundTrkParamWeight = linTrack.weightAtPCA;
+
+  // Calculate S matrix
+  ActsSymMatrixD<4> freesMat =
+      (freeMomJac.transpose() * (freeBoundTrkParamWeight * freeMomJac)).inverse();
+
   // Calculate S matrix
   ActsSymMatrixD<3> sMat =
       (momJac.transpose() * (trkParamWeight * momJac)).inverse();
 
+  const ActsVectorD<6> newResidual = linTrack.constantTerm;
   const ActsVectorD<5> residual = linTrack.constantTerm.head<5>();
+
+  // Refit track momentum
+  Vector4D freeNewTrkMomentum = freesMat * freeMomJac.transpose() * freeBoundTrkParamWeight *
+                            (newFreeTrkParams - newResidual - freePosJac * fullVtxPos);
 
   // Refit track momentum
   Vector3D newTrkMomentum = sMat * momJac.transpose() * trkParamWeight *
                             (trkParams - residual - posJac * vtxPos);
+
+  // Refit track parameters
+  BoundVector newFullTrkParams(BoundVector::Zero());
 
   // Refit track parameters
   BoundVector newTrkParams(BoundVector::Zero());
@@ -49,9 +74,23 @@ void Acts::KalmanVertexTrackUpdater::update(TrackAtVertex<input_track_t>& track,
   auto correctedPhiTheta =
       Acts::detail::ensureThetaBounds(newTrkMomentum(0), newTrkMomentum(1));
 
+  double Tx = freeNewTrkMomentum(0);
+  double Ty = freeNewTrkMomentum(1);
+  double Tz = freeNewTrkMomentum(2);
+ 
+  newFullTrkParams(BoundIndices::eBoundPhi) = std::atan2(Ty, Tx) ;     // phi
+  newFullTrkParams(BoundIndices::eBoundTheta) = std::atan2(std::sqrt(Tx*Tx + Ty * Ty), Tz);  // theta
+  newFullTrkParams(BoundIndices::eBoundQOverP) = freeNewTrkMomentum(3);        // qOverP
+
   newTrkParams(BoundIndices::eBoundPhi) = correctedPhiTheta.first;     // phi
   newTrkParams(BoundIndices::eBoundTheta) = correctedPhiTheta.second;  // theta
   newTrkParams(BoundIndices::eBoundQOverP) = newTrkMomentum(2);        // qOverP
+
+  std::cout << "COMPARE:" << std::endl;
+  std::cout << newTrkParams(0) << " = " << newFullTrkParams(0) << std::endl;
+  std::cout << newTrkParams(1) << " = " << newFullTrkParams(1) << std::endl;
+  std::cout << newTrkParams(2) << " = " << newFullTrkParams(2) << std::endl;
+  std::cout << std::endl;
 
   // Vertex covariance and weight matrices
   const ActsSymMatrixD<3> vtxCov =
