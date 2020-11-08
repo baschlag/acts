@@ -36,6 +36,8 @@ class AntiKtVertexFinder {
   struct Config {
 
   	double maxZsearchWindow = 4_mm;
+  	
+  	double radiusParameter = 500_um;
 
   };
 
@@ -80,10 +82,15 @@ class AntiKtVertexFinder {
 
  	struct PseudoTrack
  	{
+ 		// If breaking condition is reached, declare PseudoTrack as vertex
+ 		bool isVertex = false;
+ 		// If track is merged with another track, it becomes invalid
  		bool isValid = true;
  		double sumPt = 0;
  		std::vector<double> zValues;
  		double zMean = 0;
+ 		// Sum of squared sigma_z0 values
+ 		double sumSigZ0squared = 0;
  		std::vector<const InputTrack_t*> tracks;
  	};
 
