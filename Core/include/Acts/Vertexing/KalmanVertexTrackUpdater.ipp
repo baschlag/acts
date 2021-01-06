@@ -32,33 +32,43 @@ void Acts::KalmanVertexTrackUpdater::update(TrackAtVertex<input_track_t>& track,
   const ActsSymMatrixD<5> trkParamWeight =
       linTrack.weightAtPCA.block<5, 5>(0, 0);
 
-
   const Vector4D fullVtxPos = vtx.fullPosition();
-  const ActsVectorD<6> newFreeTrkParams = linTrack.parametersAtPCA;
+  const ActsVectorD<6> fullTrkParams = linTrack.parametersAtPCA;
+  const FreeToBoundMatrix& freeToBoundJacobian = linTrack.freeToBoundJacobian;
+  const ActsMatrixD<6, 4> fullPosJac = freeToBoundJacobian.block<6,4>(0,0);
+  const ActsMatrixD<6, 4> fullMomJac = freeToBoundJacobian.block<6,4>(0,4);
+  ActsSymMatrixD<6> fullTrkParamWeight = linTrack.weightAtPCA;
 
-  const FreeToBoundMatrix& boundParamJacobian = linTrack.freeToBoundJacobian;
-  //const FreeSymMatrix& freeWeightAtPCA = linTrack.freeWeightAtPCA;
-  //const FreeVector& freeParametersAtPCA = linTrack.freeParametersAtPCA;
-
-  const ActsMatrixD<6, 4> freePosJac = boundParamJacobian.block<6,4>(0,0);
-  const ActsMatrixD<6, 4> freeMomJac = boundParamJacobian.block<6,4>(0,4);
-
-  const ActsSymMatrixD<6> freeBoundTrkParamWeight = linTrack.weightAtPCA;
+  // TODO REMOVE... discard time for now
+  fullTrkParamWeight.row(5).setZero();
+  fullTrkParamWeight.col(5).setZero();
 
   // Calculate S matrix
-  ActsSymMatrixD<4> freesMat =
-      (freeMomJac.transpose() * (freeBoundTrkParamWeight * freeMomJac)).inverse();
+  ActsSymMatrixD<4> sMatFull =
+      (fullMomJac.transpose() * (fullTrkParamWeight * fullMomJac)).inverse();
 
   // Calculate S matrix
   ActsSymMatrixD<3> sMat =
       (momJac.transpose() * (trkParamWeight * momJac)).inverse();
 
-  const ActsVectorD<6> newResidual = linTrack.constantTerm;
+  const ActsVectorD<6> fullResidual = linTrack.newConstantTerm;
   const ActsVectorD<5> residual = linTrack.constantTerm.head<5>();
 
+  std::cout << "fullMomJac: " << fullMomJac << std::endl;
+  std::cout << "fullPosJac: " << fullPosJac << std::endl;
+  std::cout << "old PosJac: " << posJac << std::endl;
+  std::cout << "fullTrkParamWeight: " << fullTrkParamWeight << std::endl;
+  std::cout << "fullVtxPos: " << fullVtxPos << std::endl;
+  std::cout << "fullTrkParams: " << fullTrkParams << std::endl;
+  std::cout << "sMatFull w/o INV: " << fullMomJac.transpose() * (fullTrkParamWeight * fullMomJac) << std::endl;
+  std::cout << "sMatFull: " << sMatFull << std::endl;
+
   // Refit track momentum
-  Vector4D freeNewTrkMomentum = freesMat * freeMomJac.transpose() * freeBoundTrkParamWeight *
-                            (newFreeTrkParams - newResidual - freePosJac * fullVtxPos);
+  Vector4D fullNewTrkMomentum = sMatFull * fullMomJac.transpose() * fullTrkParamWeight *
+                            (fullTrkParams - fullResidual - fullPosJac * fullVtxPos);
+
+  std::cout << "residual: " << residual << std::endl;
+  std::cout << "fullResidual: " << fullResidual << std::endl;
 
   // Refit track momentum
   Vector3D newTrkMomentum = sMat * momJac.transpose() * trkParamWeight *
@@ -74,28 +84,39 @@ void Acts::KalmanVertexTrackUpdater::update(TrackAtVertex<input_track_t>& track,
   auto correctedPhiTheta =
       Acts::detail::ensureThetaBounds(newTrkMomentum(0), newTrkMomentum(1));
 
-  double Tx = freeNewTrkMomentum(0);
-  double Ty = freeNewTrkMomentum(1);
-  double Tz = freeNewTrkMomentum(2);
+  double Tx = fullNewTrkMomentum(0);
+  double Ty = fullNewTrkMomentum(1);
+  double Tz = fullNewTrkMomentum(2);
+  double qOverP = fullNewTrkMomentum(3); 
+
+  std::cout << "Tx,Ty,Tz,q/p: " << Tx << "," << Ty << "," << Tz << "," << qOverP << std::endl; 
  
   newFullTrkParams(BoundIndices::eBoundPhi) = std::atan2(Ty, Tx) ;     // phi
   newFullTrkParams(BoundIndices::eBoundTheta) = std::atan2(std::sqrt(Tx*Tx + Ty * Ty), Tz);  // theta
-  newFullTrkParams(BoundIndices::eBoundQOverP) = freeNewTrkMomentum(3);        // qOverP
+  newFullTrkParams(BoundIndices::eBoundQOverP) = qOverP;      // qOverP
 
   newTrkParams(BoundIndices::eBoundPhi) = correctedPhiTheta.first;     // phi
   newTrkParams(BoundIndices::eBoundTheta) = correctedPhiTheta.second;  // theta
   newTrkParams(BoundIndices::eBoundQOverP) = newTrkMomentum(2);        // qOverP
 
   std::cout << "COMPARE:" << std::endl;
-  std::cout << newTrkParams(0) << " = " << newFullTrkParams(0) << std::endl;
-  std::cout << newTrkParams(1) << " = " << newFullTrkParams(1) << std::endl;
-  std::cout << newTrkParams(2) << " = " << newFullTrkParams(2) << std::endl;
+  std::cout << newTrkParams(BoundIndices::eBoundPhi) << " = " << newFullTrkParams(BoundIndices::eBoundPhi) << std::endl;
+  std::cout << newTrkParams(BoundIndices::eBoundTheta) << " = " << newFullTrkParams(BoundIndices::eBoundTheta) << std::endl;
+  std::cout << newTrkParams(BoundIndices::eBoundQOverP) << " = " << newFullTrkParams(BoundIndices::eBoundQOverP) << std::endl;
   std::cout << std::endl;
+
+  // Vertex covariance and weight matrices
+  const ActsSymMatrixD<4> fullVtxCov = vtx.fullCovariance();
+  const ActsSymMatrixD<4> fullVtxWeight = fullVtxCov.inverse();
 
   // Vertex covariance and weight matrices
   const ActsSymMatrixD<3> vtxCov =
       vtx.fullCovariance().template block<3, 3>(0, 0);
   const ActsSymMatrixD<3> vtxWeight = vtxCov.inverse();
+
+  // New track covariance matrix
+  ActsSymMatrixD<4> fullNewTrkCov =
+      -fullVtxCov * fullPosJac.transpose() * fullTrkParamWeight * fullMomJac * sMatFull;
 
   // New track covariance matrix
   ActsSymMatrixD<3> newTrkCov =

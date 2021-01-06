@@ -141,10 +141,20 @@ Acts::Result<Acts::LinearizedTrack> Acts::
 
   double Tt = std::sqrt(Tx*Tx + Ty*Ty);
 
+  
+  double dRhodTxNew = cosTh /(qpBz * Tt) * Tx*Tz/(Tz*Tz + Tt*Tt);
+  double dRhodTyNew = cosTh /(qpBz * Tt) * Ty*Tz/(Tz*Tz + Tt*Tt);
+  double dRhodTzNew = -cosTh /qpBz * Tt/(Tz*Tz + Tt*Tt);
+  double dRhodQPNew = -sinTh/(qpBz*qOvP);
+
   double dRhodTx = Tz /(qpBz * Tt) * Tx*Tz/(Tz*Tz + Tt*Tt);
   double dRhodTy = Tz /(qpBz * Tt) * Ty*Tz/(Tz*Tz + Tt*Tt);
   double dRhodTz = -Tz /qpBz * Tt/(Tz*Tz + Tt*Tt);
   double dRhodQP = -sinTh/(qpBz*qOvP);
+
+  //std::cout << "old/new dRhodTx: " << dRhodTx << "," << dRhodTxNew << std::endl;
+  //astd::cout << "old/new dRhodTy: " << dRhodTy << "," << dRhodTyNew << std::endl;
+  //std::cout << "old/new dRhodTz: " << dRhodTz << "," << dRhodTzNew << std::endl;
 
   double dPhidTx = -Ty/(Tx*Tx + Ty*Ty);
   double dPhidTy = Tx/(Tx*Tx + Ty*Ty);
@@ -170,7 +180,7 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   freeToBoundJacobian(2,2) = 0.; // checked
   freeToBoundJacobian(2,3) = 0.; // checked
   freeToBoundJacobian(2,4) = 1/newS2 * (-dRhodTx* myR + rho * dPhidTx * myQ);
-  freeToBoundJacobian(2,5) = 1/newS2 * (-dRhodTy*myR + rho * dPhidTy * myQ);
+  freeToBoundJacobian(2,5) = 1/newS2 * (-dRhodTy* myR + rho * dPhidTy * myQ);
   freeToBoundJacobian(2,6) = -1/newS2 * dRhodTz * myR;
   freeToBoundJacobian(2,7) = -1/newS2 * dRhodQP * myR;
 
@@ -305,7 +315,7 @@ Acts::Result<Acts::LinearizedTrack> Acts::
                           momentumJacobian * momentumAtPCA;
 
   FreeVector freeVector;
-  freeVector << positionAtPCA[ePos0], positionAtPCA[ePos1], positionAtPCA[ePos2], positionAtPCA[eTime],
+  freeVector << positionAtPCA[ePos0], positionAtPCA[ePos1], positionAtPCA[ePos2], 0.,// TODO positionAtPCA[eTime],
                 Tx, Ty, Tz, qOvP;
   BoundVector newConstTerm = predParamsAtPCA - freeToBoundJacobian * freeVector;
 
