@@ -29,10 +29,60 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   auto result = m_cfg.propagator->propagate(params, *perigeeSurface, pOptions);
   if (result.ok()) {
     endParams = (*result).endParameters.get();
+    auto jacVariant = *((*result).transportJacobian);
+    auto jac = std::get<0>(jacVariant);
+    //std::cout << "jac: " << jac << std::endl;
 
   } else {
     return result.error();
   }
+
+  const BoundTrackParameters* endParamsOrigin = nullptr;
+  // Do the propagation to linPointPos
+  const std::shared_ptr<PerigeeSurface> perigeeSurfaceOrigin =
+      Surface::makeShared<PerigeeSurface>(Vector3D(0,0,0));
+  auto resultOrigin = m_cfg.propagator->propagate(params, *perigeeSurfaceOrigin, pOptions);
+  if (resultOrigin.ok()) {
+    endParamsOrigin = (*resultOrigin).endParameters.get();
+  } else {
+    return resultOrigin.error();
+  }
+
+
+  const FreeTrackParameters* endFreeParams = nullptr;
+  // Do the propagation to linPointPos
+  auto freeresult = m_cfg.propagator->template propagate<FreeTrackParameters>(*endParams, pOptions);
+  //auto freeresult = m_cfg.propagator->template propagate<FreeTrackParameters>(*endParamsOrigin, pOptions);
+  if (freeresult.ok()) {
+    endFreeParams = (*freeresult).endParameters.get();
+    //auto jacVariant = *((*result).transportJacobian);
+    //auto jac = std::get<0>(jacVariant);
+   // std::cout << "jac: " << jac << std::endl;
+
+  } else {
+    return freeresult.error();
+  }
+
+  FreeToBoundMatrix freeToBoundJacobian;
+
+  const BoundTrackParameters* backBoundParams = nullptr;
+  // Do the propagation to linPointPos
+  auto backBoundResult = m_cfg.propagator->propagate(*endFreeParams,*perigeeSurface, pOptions);
+  if (backBoundResult.ok()) {
+    backBoundParams = (*backBoundResult).endParameters.get();
+    auto jacVariant = *((*backBoundResult).transportJacobian);
+    freeToBoundJacobian = std::get<1>(jacVariant);
+  } else {
+    return result.error();
+  }
+
+
+  ActsMatrix<BoundScalar, eBoundSize, 4> newPositionJacobian;
+  newPositionJacobian = freeToBoundJacobian.block<6,4>(0,0);
+  newPositionJacobian(0,0) *= -1;
+  newPositionJacobian(0,1) *= -1;
+
+  std::cout << "new positionJacobian: \n" << newPositionJacobian << std::endl;
 
   BoundVector paramsAtPCA = endParams->parameters();
   Vector4D positionAtPCA = Vector4D::Zero();
@@ -63,6 +113,7 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   // theta and functions
   double th = paramsAtPCA(BoundIndices::eBoundTheta);
   const double sinTh = std::sin(th);
+  const double cosTh = std::cos(th);
   const double tanTh = std::tan(th);
 
   // q over p
@@ -106,6 +157,8 @@ Acts::Result<Acts::LinearizedTrack> Acts::
     }
   }
 
+  std::cout << "phi: " << phiAtPCA << ", " << phiV << std::endl;
+
   // Eq. 5.33 in Ref(1) (see .hpp)
   predParamsAtPCA[0] = rho - sgnH * S;
   predParamsAtPCA[1] =
@@ -114,6 +167,9 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   predParamsAtPCA[3] = th;
   predParamsAtPCA[4] = qOvP;
   predParamsAtPCA[5] = 0.;
+
+  std::cout << "predParamsAtPCA: " <<  predParamsAtPCA << std::endl;
+  std::cout << "paramsAtPCA: " <<  paramsAtPCA << std::endl;
 
   // Fill position jacobian (D_k matrix), Eq. 5.36 in Ref(1)
   ActsMatrix<BoundScalar, eBoundSize, 4> positionJacobian;
@@ -136,6 +192,8 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   // TODO: include timing in track linearization
   // Last row
   positionJacobian(5, 3) = 1;
+
+  std::cout << "old pos jacobian:\n" << positionJacobian << std::endl;
 
   // Fill momentum jacobian (E_k matrix), Eq. 5.37 in Ref(1)
   ActsMatrixD<eBoundSize, 3> momentumJacobian;
@@ -168,6 +226,34 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   // Last two rows:
   momentumJacobian(3, 1) = 1.;
   momentumJacobian(4, 2) = 1.;
+
+
+
+  
+
+  ActsMatrixD<4, 3> myTransform = ActsMatrixD<4, 3>::Zero();
+  myTransform(0,0) = - sinTh * sinPhiV;
+  myTransform(1,0) = sinTh * cosPhiV;
+  myTransform(0,1) = cosTh * cosPhiV;
+  myTransform(1,1) = cosTh * sinPhiV;
+  myTransform(2,1) = -sinTh;
+  myTransform(3,2) = 1.;
+
+  ActsMatrix<BoundScalar, eBoundSize, 4> newMomentumJacobian;
+  newMomentumJacobian = freeToBoundJacobian.block<6,4>(0,4);
+
+  ActsMatrixD<6, 3> transformedMomJac = newMomentumJacobian * myTransform;
+  transformedMomJac(2,0) *= -1;// - transformedMomJac(0,2);
+
+  std::cout << "newMomentumJacobian: \n" << transformedMomJac << std::endl;
+
+  std::cout << "old mom jacobian:\n" << momentumJacobian << std::endl;
+
+
+  positionJacobian = -newPositionJacobian;
+  momentumJacobian = transformedMomJac;
+  predParamsAtPCA = paramsAtPCA;
+
 
   // const term F(V_0, p_0) in Talyor expansion
   BoundVector constTerm = predParamsAtPCA - positionJacobian * positionAtPCA -
