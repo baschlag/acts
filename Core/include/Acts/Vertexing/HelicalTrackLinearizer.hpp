@@ -105,6 +105,16 @@ class HelicalTrackLinearizer {
                                          const Acts::MagneticFieldContext& mctx,
                                          State& state) const;
 
+ 
+struct TestAborter {
+  TestAborter() = default;
+  template <typename propagator_state_t, typename stepper_t>
+  bool operator()(propagator_state_t& /*state*/,
+                  const stepper_t& /*unused*/) const {
+    return true;
+}
+};
+
  private:
   /// Configuration object
   const Config m_cfg;
