@@ -23,6 +23,7 @@
 #include "Acts/Vertexing/ImpactPointEstimator.hpp"
 #include "Acts/Vertexing/TrackDensityVertexFinder.hpp"
 #include "Acts/Vertexing/Vertex.hpp"
+#include "Acts/Vertexing/GenericTrackLinearizer.hpp"
 
 #include <chrono>
 
@@ -35,7 +36,8 @@ using namespace Acts::UnitLiterals;
 
 using Covariance = BoundSymMatrix;
 using Propagator = Propagator<EigenStepper<ConstantBField>>;
-using Linearizer = HelicalTrackLinearizer<Propagator>;
+using HelicalLinearizer = HelicalTrackLinearizer<Propagator>;
+using GenericLinearizer = GenericTrackLinearizer<Propagator>;
 
 // Create a test context
 GeometryContext geoContext = GeometryContext();
@@ -67,15 +69,15 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_finder_test) {
   AnnealingUtility::Config annealingConfig(temperatures);
   AnnealingUtility annealingUtility(annealingConfig);
 
-  using Fitter = AdaptiveMultiVertexFitter<BoundTrackParameters, Linearizer>;
+  using Fitter = AdaptiveMultiVertexFitter<BoundTrackParameters, HelicalLinearizer>;
 
   Fitter::Config fitterCfg(ipEstimator);
 
   fitterCfg.annealingTool = annealingUtility;
 
-  // Linearizer for BoundTrackParameters type test
-  Linearizer::Config ltConfig(bField, propagator);
-  Linearizer linearizer(ltConfig);
+  // HelicalLinearizer for BoundTrackParameters type test
+  HelicalLinearizer::Config ltConfig(bField, propagator);
+  HelicalLinearizer linearizer(ltConfig);
 
   // Test smoothing
   fitterCfg.doSmoothing = true;
@@ -177,6 +179,144 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_finder_test) {
   }
 }
 
+/// @brief AMVF test with Gaussian seed finder and GenericTrackLinearizer
+BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_finder_test_generic_track_linearizer) {
+  // Set debug mode
+  bool debugMode = true;
+  // Set up constant B-Field
+  ConstantBField bField(Vector3D(0., 0., 2_T));
+
+  // Set up EigenStepper
+  // EigenStepper<ConstantBField> stepper(bField);
+  EigenStepper<ConstantBField> stepper(bField);
+
+  // Set up propagator with void navigator
+  auto propagator = std::make_shared<Propagator>(stepper);
+
+  // IP 3D Estimator
+  using IPEstimator = ImpactPointEstimator<BoundTrackParameters, Propagator>;
+
+  IPEstimator::Config ipEstimatorCfg(bField, propagator);
+  IPEstimator ipEstimator(ipEstimatorCfg);
+
+  std::vector<double> temperatures{8.0, 4.0, 2.0, 1.4142136, 1.2247449, 1.0};
+  AnnealingUtility::Config annealingConfig(temperatures);
+  AnnealingUtility annealingUtility(annealingConfig);
+
+  using Fitter = AdaptiveMultiVertexFitter<BoundTrackParameters, GenericLinearizer>;
+
+  Fitter::Config fitterCfg(ipEstimator);
+
+  fitterCfg.annealingTool = annealingUtility;
+
+  // GenericLinearizer for BoundTrackParameters type test
+  GenericLinearizer::Config ltConfig(bField, propagator);
+  GenericLinearizer linearizer(ltConfig);
+
+  // Test smoothing
+  fitterCfg.doSmoothing = true;
+
+  Fitter fitter(fitterCfg);
+
+  using SeedFinder =
+      TrackDensityVertexFinder<Fitter,
+                               GaussianTrackDensity<BoundTrackParameters>>;
+
+  SeedFinder seedFinder;
+
+  using Finder = AdaptiveMultiVertexFinder<Fitter, SeedFinder>;
+
+  Finder::Config finderConfig(std::move(fitter), seedFinder, ipEstimator,
+                              linearizer);
+
+  // TODO: test this as well!
+  // finderConfig.useBeamSpotConstraint = false;
+
+  Finder finder(finderConfig);
+  Finder::State state;
+
+  auto csvData = readTracksAndVertexCSV(toolString);
+  auto tracks = std::get<TracksData>(csvData);
+
+  if (debugMode) {
+    std::cout << "Number of tracks in event: " << tracks.size() << std::endl;
+    int maxCout = 10;
+    int count = 0;
+    for (const auto& trk : tracks) {
+      std::cout << count << ". track: " << std::endl;
+      std::cout << "params: " << trk << std::endl;
+      count++;
+      if (count == maxCout) {
+        break;
+      }
+    }
+  }
+
+  std::vector<const BoundTrackParameters*> tracksPtr;
+  for (const auto& trk : tracks) {
+    tracksPtr.push_back(&trk);
+  }
+
+  VertexingOptions<BoundTrackParameters> vertexingOptions(geoContext,
+                                                          magFieldContext);
+
+  vertexingOptions.vertexConstraint = std::get<BeamSpotData>(csvData);
+
+  auto t1 = std::chrono::system_clock::now();
+  auto findResult = finder.find(tracksPtr, vertexingOptions, state);
+  auto t2 = std::chrono::system_clock::now();
+
+  auto timediff =
+      std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+  if (!findResult.ok()) {
+    std::cout << findResult.error().message() << std::endl;
+  }
+
+  BOOST_CHECK(findResult.ok());
+
+  std::vector<Vertex<BoundTrackParameters>> allVertices = *findResult;
+
+  if (debugMode) {
+    std::cout << "Time needed: " << timediff << " ms." << std::endl;
+    std::cout << "Number of vertices reconstructed: " << allVertices.size()
+              << std::endl;
+
+    int count = 0;
+    for (const auto& vtx : allVertices) {
+      count++;
+      std::cout << count << ". Vertex at position: " << vtx.position()[0]
+                << ", " << vtx.position()[1] << ", " << vtx.position()[2]
+                << std::endl;
+      std::cout << count << ". Vertex with cov: " << vtx.covariance()
+                << std::endl;
+      std::cout << "\t with n tracks: " << vtx.tracks().size() << std::endl;
+    }
+  }
+
+  // Test expected outcomes from athena implementation
+  // Number of reconstructed vertices
+  auto verticesInfo = std::get<VerticesData>(csvData);
+  const int expNRecoVertices = verticesInfo.size();
+
+  BOOST_CHECK_EQUAL(allVertices.size(), expNRecoVertices);
+
+  for (int i = 0; i < expNRecoVertices; i++) {
+    auto recoVtx = allVertices[i];
+    auto expVtx = verticesInfo[i];
+    if(debugMode){
+      std::cout << "Expected vertex positon : " << expVtx.position.transpose() << std::endl;
+      std::cout << "Reconstr. vertex positon: " << recoVtx.position().transpose() << "\n" << std::endl;
+    }
+    CHECK_CLOSE_ABS(recoVtx.position(), expVtx.position, 0.001_mm);
+    CHECK_CLOSE_ABS(recoVtx.covariance(), expVtx.covariance, 0.001_mm);
+    BOOST_CHECK_EQUAL(recoVtx.tracks().size(), expVtx.nTracks);
+    CHECK_CLOSE_ABS(recoVtx.tracks()[0].trackWeight, expVtx.trk1Weight, 0.003);
+    CHECK_CLOSE_ABS(recoVtx.tracks()[0].vertexCompatibility, expVtx.trk1Comp,
+                    0.003);
+  }
+}
+
 // Dummy user-defined InputTrack type
 struct InputTrack {
   InputTrack(const BoundTrackParameters& params, int id)
@@ -223,15 +363,15 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_finder_usertype_test) {
   AnnealingUtility::Config annealingConfig(temperatures);
   AnnealingUtility annealingUtility(annealingConfig);
 
-  using Fitter = AdaptiveMultiVertexFitter<InputTrack, Linearizer>;
+  using Fitter = AdaptiveMultiVertexFitter<InputTrack, HelicalLinearizer>;
 
   Fitter::Config fitterCfg(ipEstimator);
 
   fitterCfg.annealingTool = annealingUtility;
 
-  // Linearizer
-  Linearizer::Config ltConfig(bField, propagator);
-  Linearizer linearizer(ltConfig);
+  // HelicalLinearizer
+  HelicalLinearizer::Config ltConfig(bField, propagator);
+  HelicalLinearizer linearizer(ltConfig);
 
   // Test smoothing
   fitterCfg.doSmoothing = true;
@@ -362,15 +502,15 @@ BOOST_AUTO_TEST_CASE(adaptive_multi_vertex_finder_grid_seed_finder_test) {
   AnnealingUtility::Config annealingConfig(temperatures);
   AnnealingUtility annealingUtility(annealingConfig);
 
-  using Fitter = AdaptiveMultiVertexFitter<BoundTrackParameters, Linearizer>;
+  using Fitter = AdaptiveMultiVertexFitter<BoundTrackParameters, HelicalLinearizer>;
 
   Fitter::Config fitterCfg(ipEst);
 
   fitterCfg.annealingTool = annealingUtility;
 
-  // Linearizer for BoundTrackParameters type test
-  Linearizer::Config ltConfig(bField, propagator);
-  Linearizer linearizer(ltConfig);
+  // HelicalLinearizer for BoundTrackParameters type test
+  HelicalLinearizer::Config ltConfig(bField, propagator);
+  HelicalLinearizer linearizer(ltConfig);
 
   // Test smoothing
   fitterCfg.doSmoothing = true;
