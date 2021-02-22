@@ -1,6 +1,6 @@
 // This file is part of the Acts project.
 //
-// Copyright (C) 2019 CERN for the benefit of the Acts project
+// Copyright (C) 2021 CERN for the benefit of the Acts project
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -20,7 +20,7 @@
 
 namespace Acts {
 
-/// @class HelicalTrackLinearizer
+/// @class GenericTrackLinearizer
 /// Linearizes the measurement equation (dependance of track
 /// parameters on the vertex position and track momentum at vertex)
 /// at the vicinity of the user-provided linearization point.
@@ -41,7 +41,7 @@ namespace Acts {
 /// @tparam propagator_options_t Propagator options type
 template <typename propagator_t,
           typename propagator_options_t = PropagatorOptions<>>
-class HelicalTrackLinearizer {
+class GenericTrackLinearizer {
  public:
   using Propagator_t = propagator_t;
   using BField_t = typename Propagator_t::Stepper::BField;
@@ -77,17 +77,12 @@ class HelicalTrackLinearizer {
     BField_t bField;
     // The propagator
     std::shared_ptr<Propagator_t> propagator;
-
-    // Minimum q/p value
-    double minQoP = 1e-15;
-    // Maximum curvature value
-    double maxRho = 1e+15;
   };
 
   /// @brief Constructor
   ///
   /// @param config Configuration object
-  HelicalTrackLinearizer(const Config& config) : m_cfg(config) {}
+  GenericTrackLinearizer(const Config& config) : m_cfg(config) {}
 
   /// @brief Function that linearizes BoundTrackParameters at
   /// given linearization point
@@ -105,6 +100,16 @@ class HelicalTrackLinearizer {
                                          const Acts::MagneticFieldContext& mctx,
                                          State& state) const;
 
+ 
+struct NoPropagationAborter {
+  NoPropagationAborter() = default;
+  template <typename propagator_state_t, typename stepper_t>
+  bool operator()(propagator_state_t& /*state*/,
+                  const stepper_t& /*unused*/) const {
+    return true;
+}
+};
+
  private:
   /// Configuration object
   const Config m_cfg;
@@ -112,4 +117,4 @@ class HelicalTrackLinearizer {
 
 }  // namespace Acts
 
-#include "HelicalTrackLinearizer.ipp"
+#include "GenericTrackLinearizer.ipp"
