@@ -21,7 +21,7 @@ Acts::Result<Acts::LinearizedTrack> Acts::
       Surface::makeShared<PerigeeSurface>(linPointPos);
 
       const std::shared_ptr<PerigeeSurface> perigeeSurface2 =
-      Surface::makeShared<PerigeeSurface>(linPointPos + Vector3D(1e-3,1e-3,1e-3));
+      Surface::makeShared<PerigeeSurface>(linPointPos + Vector3D(1e-2,1e-2,1e-2));
 
   // std::cout << "linPointPos: " << linPointPos.transpose() << std::endl;
 
@@ -123,6 +123,9 @@ Acts::Result<Acts::LinearizedTrack> Acts::
   blockMomentumJacobian = freeToBoundJacobian.block<6,4>(0,4);
 
   ActsMatrixD<6, 3> momentumJacobian = blockMomentumJacobian * freeToBoundMomentumTransform;
+
+  momentumJacobian(0,0) = 0.;
+  momentumJacobian(1,1) = 0.;
 
   // const term F(V_0, p_0) in Talyor expansion
   BoundVector constTerm = paramsAtPCA - positionJacobian * positionAtPCA -
