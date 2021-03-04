@@ -51,7 +51,9 @@ class TrackDensityVertexFinder {
   };
 
   /// @struct State State struct for fulfilling interface
-  struct State {};
+  struct State {
+    int nExp = 0;
+  };
 
   /// @brief Function that finds single vertex candidate
   ///

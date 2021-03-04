@@ -53,6 +53,8 @@ Acts::GaussianTrackDensity<input_track_t>::globalMaximumWithWidth(
                       maxDensity, maxSecondDerivative);
   }
 
+  std::cout << "ntracks/nExp: " << trackList.size() << "," << state.nExp << std::endl;
+
   return (maxSecondDerivative == 0.)
              ? std::make_pair(0., 0.)
              : std::make_pair(maxPosition,
@@ -125,7 +127,7 @@ Acts::GaussianTrackDensity<input_track_t>::trackDensityAndDerivatives(
     State& state, double z) const {
   GaussianTrackDensityStore densityResult(z);
   for (const auto& trackEntry : state.trackEntries) {
-    densityResult.addTrackToDensity(trackEntry);
+    densityResult.addTrackToDensity(trackEntry, state);
   }
   return densityResult.densityAndDerivatives();
 }
@@ -151,8 +153,9 @@ double Acts::GaussianTrackDensity<input_track_t>::stepSize(double y, double dy,
 
 template <typename input_track_t>
 void Acts::GaussianTrackDensity<input_track_t>::GaussianTrackDensityStore::
-    addTrackToDensity(const TrackEntry& entry) {
+    addTrackToDensity(const TrackEntry& entry, State& state) {
   // Take track only if it's within bounds
+  state.nExp += 1;
   if (entry.lowerBound < m_z && m_z < entry.upperBound) {
     double delta = std::exp(entry.c0 + m_z * (entry.c1 + m_z * entry.c2));
     double qPrime = entry.c1 + 2. * m_z * entry.c2;

@@ -158,7 +158,9 @@ class AdaptiveMultiVertexFinder {
   };  // Config struct
 
   /// @struct State State struct for fulfilling interface
-  struct State {};
+  struct State {
+    int nExp = 0;
+  };
 
   /// @brief Constructor used if InputTrack_t type == BoundTrackParameters
   ///

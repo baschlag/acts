@@ -84,6 +84,8 @@ class GaussianTrackDensity {
     State(unsigned int nTracks) { trackEntries.reserve(nTracks); }
     // Vector to cache track information
     std::vector<TrackEntry> trackEntries;
+
+    int nExp = 0;
   };
 
   /// Default constructor
@@ -181,7 +183,7 @@ class GaussianTrackDensity {
     GaussianTrackDensityStore(double z_coordinate) : m_z(z_coordinate) {}
 
     // Add the contribution of a single track to the density
-    void addTrackToDensity(const TrackEntry& entry);
+    void addTrackToDensity(const TrackEntry& entry,State& state);
 
     // Return density, first and second derivatives
     inline std::tuple<double, double, double> densityAndDerivatives() const {

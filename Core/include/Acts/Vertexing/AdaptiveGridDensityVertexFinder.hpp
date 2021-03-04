@@ -94,6 +94,8 @@ class AdaptiveGridDensityVertexFinder {
     std::vector<const InputTrack_t*> tracksToRemove;
 
     bool isInitialized = false;
+
+    int nExp = 0;
   };
 
   /// @brief Function that finds single vertex candidate
