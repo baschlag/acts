@@ -53,7 +53,7 @@ Acts::GaussianTrackDensity<input_track_t>::globalMaximumWithWidth(
                       maxDensity, maxSecondDerivative);
   }
 
-  std::cout << "ntracks/nExp: " << trackList.size() << "," << state.nExp << std::endl;
+  //std::cout << "ntracks/nExp: " << trackList.size() << "," << state.nExp << std::endl;
 
   return (maxSecondDerivative == 0.)
              ? std::make_pair(0., 0.)
