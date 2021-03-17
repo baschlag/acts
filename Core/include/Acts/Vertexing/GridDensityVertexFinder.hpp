@@ -94,7 +94,7 @@ class GridDensityVertexFinder {
 
     bool isInitialized = false;
 
-    int nExp = 0;
+    double fracFullDensityBins = 0;
   };
 
   /// @brief Function that finds single vertex candidate

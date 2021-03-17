@@ -55,6 +55,20 @@ auto Acts::GridDensityVertexFinder<mainGridSize, trkGridSize, vfitter_t>::find(
       }
     }
     state.isInitialized = true;
+
+    int nFilledBins = 0;
+    // all tracks have been added.. now test what fraction of bins is filled
+    for(unsigned int i = 0; i < mainGridSize; i++){
+      float entry = state.mainGrid(i);
+      if (entry != 0.){
+        nFilledBins++;
+      }
+    }
+
+    std::cout << "nFilled bins: " << nFilledBins << "/" << mainGridSize << std::endl;
+    state.fracFullDensityBins = (double)nFilledBins/mainGridSize;
+    std::cout << "-->Fraction: " << state.fracFullDensityBins << std::endl;
+
   }
 
   double z = 0;

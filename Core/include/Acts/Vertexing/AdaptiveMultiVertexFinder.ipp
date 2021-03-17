@@ -129,7 +129,8 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::find(
     iteration++;
   }  // end while loop
 
-  state.nExp = seedFinderState.nExp;
+  state.fracFullDensityBins = seedFinderState.fracFullDensityBins;
+  std::cout << "AMVF: state.fracFullDensityBins: " << state.fracFullDensityBins << std::endl;
 
   return getVertexOutputList(allVerticesPtr, fitterState);
 }

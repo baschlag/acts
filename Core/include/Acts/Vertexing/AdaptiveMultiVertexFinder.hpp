@@ -159,7 +159,7 @@ class AdaptiveMultiVertexFinder {
 
   /// @struct State State struct for fulfilling interface
   struct State {
-    int nExp = 0;
+    double fracFullDensityBins = 0;
   };
 
   /// @brief Constructor used if InputTrack_t type == BoundTrackParameters
