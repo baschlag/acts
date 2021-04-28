@@ -5,6 +5,7 @@ add_library(
   src/TutorialVertexFinderAlgorithm.cpp
   src/VertexFitterAlgorithm.cpp
   src/VertexingOptions.cpp
+  src/SeedFinderStandaloneAlgorithm.cpp
 )
 target_include_directories(
   ActsExamplesVertexing
