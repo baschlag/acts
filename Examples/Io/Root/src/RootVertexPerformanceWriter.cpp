@@ -83,6 +83,7 @@ ActsExamples::RootVertexPerformanceWriter::RootVertexPerformanceWriter(
     m_outputTree->Branch("nTrueVtx", &m_ntrueVtx);
     m_outputTree->Branch("nVtxDetectorAcceptance", &m_nVtxDetAcceptance);
     m_outputTree->Branch("nVtxReconstructable", &m_nVtxReconstructable);
+    m_outputTree->Branch("nTracks", &m_ntracks);
   }
 }
 
@@ -219,6 +220,8 @@ ActsExamples::ProcessCode ActsExamples::RootVertexPerformanceWriter::writeT(
 
         break;
   }
+
+  m_ntracks = allAssociatedTruthParticles.size();
 
 
   // fill the variables
