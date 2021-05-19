@@ -28,6 +28,7 @@
 #include "ActsExamples/EventData/Track.hpp"
 #include "ActsExamples/Framework/WhiteBoard.hpp"
 #include "ActsExamples/Utilities/Options.hpp"
+#include "Acts/Vertexing/GridDensityVertexFinder.hpp"
 
 #include <chrono>
 
@@ -95,10 +96,16 @@ ActsExamples::AdaptiveMultiVertexFinderAlgorithm::execute(
   fitterCfg.annealingTool = annealingUtility;
   Fitter fitter(fitterCfg);
 
-  // Set up the vertex seed finder
-  using SeedFinder = Acts::TrackDensityVertexFinder<
-      Fitter, Acts::GaussianTrackDensity<Acts::BoundTrackParameters>>;
-  SeedFinder seedFinder;
+  // // Set up the vertex seed finder
+  // using SeedFinder = Acts::TrackDensityVertexFinder<
+  //     Fitter, Acts::GaussianTrackDensity<Acts::BoundTrackParameters>>;
+  // SeedFinder seedFinder;
+
+  using SeedFinder = Acts::GridDensityVertexFinder<1000, 15>;
+  SeedFinder::Config seedFinderCfg(250);
+  seedFinderCfg.cacheGridStateForTrackRemoval = true;
+
+  SeedFinder seedFinder(seedFinderCfg);
 
   // The vertex finder type
   using Finder = Acts::AdaptiveMultiVertexFinder<Fitter, SeedFinder>;

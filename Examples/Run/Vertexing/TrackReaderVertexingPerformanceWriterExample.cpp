@@ -24,6 +24,7 @@
 #include "ActsExamples/TruthTracking/TrackSelector.hpp"
 #include "ActsExamples/Utilities/Paths.hpp"
 #include "ActsExamples/Vertexing/AdaptiveMultiVertexFinderAlgorithm.hpp"
+#include "ActsExamples/Vertexing/IterativeVertexFinderAlgorithm.hpp"
 #include "ActsExamples/Vertexing/VertexingOptions.hpp"
 
 #include <memory>
@@ -102,6 +103,15 @@ int main(int argc, char* argv[]) {
   findVertices.outputTime = "recoTimeMS";
   sequencer.addAlgorithm(std::make_shared<AdaptiveMultiVertexFinderAlgorithm>(
       findVertices, logLevel));
+
+  // find vertices
+  // IterativeVertexFinderAlgorithm::Config findVertices(magneticField);
+  // findVertices.inputTrackParameters = trackSelectorConfig.outputTrackParameters;
+  // findVertices.outputProtoVertices = "protovertices";
+  // findVertices.outputVertices = "fittedVertices";
+  // findVertices.outputTime = "recoTimeMS";
+  // sequencer.addAlgorithm(
+  //     std::make_shared<IterativeVertexFinderAlgorithm>(findVertices, logLevel));
 
   // write track parameters from fitting
   RootVertexPerformanceWriter::Config vertexWriterConfig;
