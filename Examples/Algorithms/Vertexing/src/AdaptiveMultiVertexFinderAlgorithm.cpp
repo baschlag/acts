@@ -101,7 +101,7 @@ ActsExamples::AdaptiveMultiVertexFinderAlgorithm::execute(
   //     Fitter, Acts::GaussianTrackDensity<Acts::BoundTrackParameters>>;
   // SeedFinder seedFinder;
 
-  using SeedFinder = Acts::GridDensityVertexFinder<1000, 15>;
+  using SeedFinder = Acts::GridDensityVertexFinder<10000, 55>;
   SeedFinder::Config seedFinderCfg(250);
   seedFinderCfg.cacheGridStateForTrackRemoval = true;
 
@@ -129,6 +129,8 @@ ActsExamples::AdaptiveMultiVertexFinderAlgorithm::execute(
   auto result = finder.find(inputTrackPointers, finderOpts, state);
   auto t2 = std::chrono::high_resolution_clock::now();
 
+  int seedTime = state.totalSeedingTime; // mirco seconds
+
   if (not result.ok()) {
     ACTS_ERROR("Error in vertex finder: " << result.error().message());
     return ProcessCode::ABORT;
@@ -154,6 +156,8 @@ ActsExamples::AdaptiveMultiVertexFinderAlgorithm::execute(
       std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
   // store reconstruction time
   ctx.eventStore.add(m_cfg.outputTime, std::move(timeMS));
+  // store seeding time
+  ctx.eventStore.add(m_cfg.outputTime + "seed", std::move(seedTime));
 
   return ActsExamples::ProcessCode::SUCCESS;
 }

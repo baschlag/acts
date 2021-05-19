@@ -98,6 +98,7 @@ class RootVertexPerformanceWriter final
       -1;  ///< Max. number of reconstructable vertices (detector acceptance +
            ///< tracking efficiency)
   int m_timeMS = -1;  ///< Reconstruction time in ms
+  int m_timeseed = -1;
 
   int getNumberOfReconstructableVertices(
       const SimParticleContainer& collection) const;

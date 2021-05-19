@@ -8,11 +8,13 @@
 
 #include "Acts/Vertexing/VertexingError.hpp"
 
+#include <chrono>
+
 template <typename vfitter_t, typename sfinder_t>
 auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::find(
     const std::vector<const InputTrack_t*>& allTracks,
     const VertexingOptions<InputTrack_t>& vertexingOptions,
-    State& /*state*/) const -> Result<std::vector<Vertex<InputTrack_t>>> {
+    State& state) const -> Result<std::vector<Vertex<InputTrack_t>>> {
   if (allTracks.empty()) {
     return VertexingError::EmptyInput;
   }
@@ -45,7 +47,7 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::find(
     Vertex<InputTrack_t> currentConstraint = vertexingOptions.vertexConstraint;
     // Retrieve seed vertex from all remaining seedTracks
     auto seedResult = doSeeding(seedTracks, currentConstraint, vertexingOptions,
-                                seedFinderState, removedSeedTracks);
+                                seedFinderState, removedSeedTracks, state);
     if (!seedResult.ok()) {
       return seedResult.error();
     }
@@ -138,7 +140,7 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::doSeeding(
     Vertex<InputTrack_t>& currentConstraint,
     const VertexingOptions<InputTrack_t>& vertexingOptions,
     SeedFinderState_t& seedFinderState,
-    const std::vector<const InputTrack_t*>& removedSeedTracks) const
+    const std::vector<const InputTrack_t*>& removedSeedTracks, State& state) const
     -> Result<Vertex<InputTrack_t>> {
   VertexingOptions<InputTrack_t> seedOptions = vertexingOptions;
   seedOptions.vertexConstraint = currentConstraint;
@@ -147,9 +149,16 @@ auto Acts::AdaptiveMultiVertexFinder<vfitter_t, sfinder_t>::doSeeding(
     seedFinderState.tracksToRemove = removedSeedTracks;
   }
 
+  auto t1 = std::chrono::high_resolution_clock::now();
   // Run seed finder
   auto seedResult =
       m_cfg.seedFinder.find(trackVector, seedOptions, seedFinderState);
+  auto t2 = std::chrono::high_resolution_clock::now();
+  int timeMS =
+      std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+
+  state.totalSeedingTime += timeMS;
+  state.seederCalls += 1;
 
   if (!seedResult.ok()) {
     return seedResult.error();

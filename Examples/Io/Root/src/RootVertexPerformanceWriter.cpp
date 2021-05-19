@@ -87,6 +87,7 @@ ActsExamples::RootVertexPerformanceWriter::RootVertexPerformanceWriter(
     m_outputTree->Branch("nVtxDetectorAcceptance", &m_nVtxDetAcceptance);
     m_outputTree->Branch("nVtxReconstructable", &m_nVtxReconstructable);
     m_outputTree->Branch("timeMS", &m_timeMS);
+    m_outputTree->Branch("timeSeeding", &m_timeseed);
   }
 }
 
@@ -283,6 +284,9 @@ ActsExamples::ProcessCode ActsExamples::RootVertexPerformanceWriter::writeT(
   // Retrieve and set reconstruction time
   const auto& reconstructionTimeMS = ctx.eventStore.get<int>(m_cfg.inputTime);
   m_timeMS = reconstructionTimeMS;
+
+  const auto& seedTimeMS = ctx.eventStore.get<int>(m_cfg.inputTime + "seed");
+  m_timeseed = seedTimeMS;
 
   // fill the variables
   m_outputTree->Fill();

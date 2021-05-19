@@ -129,7 +129,7 @@ class AdaptiveMultiVertexFinder {
     double minWeight = 0.0001;
 
     // Maximal number of iterations in the finding procedure
-    int maxIterations = 100;
+    int maxIterations = 200;
 
     // Include also single track vertices
     bool addSingleTrackVertices = false;
@@ -161,7 +161,10 @@ class AdaptiveMultiVertexFinder {
   };  // Config struct
 
   /// @struct State State struct for fulfilling interface
-  struct State {};
+  struct State {
+    int totalSeedingTime = 0;
+    int seederCalls = 0;
+  };
 
   /// @brief Constructor used if InputTrack_t type == BoundTrackParameters
   ///
@@ -239,7 +242,8 @@ class AdaptiveMultiVertexFinder {
       Vertex<InputTrack_t>& currentConstraint,
       const VertexingOptions<InputTrack_t>& vertexingOptions,
       SeedFinderState_t& seedFinderState,
-      const std::vector<const InputTrack_t*>& removedSeedTracks) const;
+      const std::vector<const InputTrack_t*>& removedSeedTracks,
+      State& state) const;
 
   /// @brief Sets constraint vertex after seeding
   ///
