@@ -96,9 +96,9 @@ class IterativeVertexFinder {
 
     /// Vertex finder configuration variables
     bool useBeamConstraint = false;
-    double significanceCutSeeding = 10;
-    double maximumChi2cutForSeeding = 36.;
-    int maxVertices = 50;
+    double significanceCutSeeding = 12;
+    double maximumChi2cutForSeeding = 49.;
+    int maxVertices = 200;
     bool createSplitVertices = false;
     int splitVerticesTrkInvFraction = 2;
     bool reassignTracksAfterFirstFit = false;
