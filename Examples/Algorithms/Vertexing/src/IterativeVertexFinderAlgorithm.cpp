@@ -134,5 +134,9 @@ ActsExamples::ProcessCode ActsExamples::IterativeVertexFinderAlgorithm::execute(
   // store reconstruction time
   ctx.eventStore.add(m_cfg.outputTime, std::move(timeMS));
 
+  // hack...
+  int seedTime = -1;
+  ctx.eventStore.add(m_cfg.outputTime + "seed", std::move(seedTime));
+
   return ActsExamples::ProcessCode::SUCCESS;
 }

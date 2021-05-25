@@ -120,6 +120,8 @@ class IterativeVertexFinder {
     typename Linearizer_t::State linearizerState;
     /// The fitter state
     typename vfitter_t::State fitterState;
+
+    int totalSeedingTime = -1;
   };
 
   /// @brief Constructor used if InputTrack_t type == BoundTrackParameters

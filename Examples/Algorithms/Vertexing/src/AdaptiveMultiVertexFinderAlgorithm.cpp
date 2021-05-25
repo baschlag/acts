@@ -101,10 +101,9 @@ ActsExamples::AdaptiveMultiVertexFinderAlgorithm::execute(
   //     Fitter, Acts::GaussianTrackDensity<Acts::BoundTrackParameters>>;
   // SeedFinder seedFinder;
 
-  using SeedFinder = Acts::GridDensityVertexFinder<10000, 55>;
+  using SeedFinder = Acts::GridDensityVertexFinder<1000, 9>;
   SeedFinder::Config seedFinderCfg(250);
   seedFinderCfg.cacheGridStateForTrackRemoval = true;
-
   SeedFinder seedFinder(seedFinderCfg);
 
   // The vertex finder type
